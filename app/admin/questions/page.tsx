@@ -1,208 +1,226 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Edit, Trash2, Search, Filter } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import QuestionCard from "@/components/admin/questions/question-card";
 import QuestionForm from "@/components/admin/questions/question-form";
-import DeleteConfirmDialog from "@/components/admin/common/delete-confirm-dialog";
+import { useToast } from "@/components/ui/use-toast";
+import EditDialog from "@/components/admin/questions/edit-dialog";
+import DeleteDialog from "@/components/admin/questions/delete-dialog";
+
+interface Question {
+  id: string;
+  text: string;
+  options: string[];
+  correctOption: number;
+  cardNumber: number;
+  isActive: boolean;
+  gameId: string;
+  game: {
+    id: string;
+    name: string;
+    type: "STRAIGHT" | "NESTED";
+  };
+  categoryId?: string;
+  category?: {
+    id: string;
+    name: string;
+  };
+}
 
 export default function QuestionsPage() {
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedQuestion, setSelectedQuestion] = useState(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedDifficulty, setSelectedDifficulty] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(
+    null
+  );
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const { toast } = useToast();
+  const searchParams = useSearchParams();
 
-  // Placeholder data - will be replaced with actual API calls
-  const questions = [
-    {
-      id: "1",
-      question: "What is 2 + 2?",
-      options: ["3", "4", "5", "6"],
-      correctAnswer: 1,
-      difficulty: 1,
-      categoryId: "1",
-      category: { name: "Mathematics" },
-      isActive: true,
-    },
-    // Add more sample questions
-  ];
+  const fetchQuestions = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: "20",
+        search: searchQuery,
+      });
 
-  const categories = [
-    { id: "1", name: "Mathematics" },
-    { id: "2", name: "Algebra" },
-    // Add more categories
-  ];
+      const gameId = searchParams.get("gameId");
+      const categoryId = searchParams.get("categoryId");
+      if (gameId) params.append("gameId", gameId);
+      if (categoryId) params.append("categoryId", categoryId);
 
-  const handleCreateQuestion = async (questionData) => {
-    // TODO: Implement question creation API call
-    setIsCreateModalOpen(false);
+      const response = await fetch(`/api/admin/questions?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch questions");
+
+      const data = await response.json();
+      setQuestions(data.questions);
+      setTotalPages(data.totalPages);
+    } catch (error) {
+      console.error("Error fetching questions:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load questions. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleEditQuestion = async (questionData) => {
-    // TODO: Implement question update API call
-    setIsEditModalOpen(false);
+  useEffect(() => {
+    fetchQuestions();
+  }, [page, searchQuery, searchParams]);
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    setPage(1); // Reset to first page when searching
   };
 
-  const handleDeleteQuestion = async () => {
-    // TODO: Implement question deletion API call
-    setIsDeleteDialogOpen(false);
+  const handleEdit = (question: Question) => {
+    setSelectedQuestion(question);
+    setIsEditDialogOpen(true);
   };
 
-  const filteredQuestions = questions.filter((q) => {
-    const matchesSearch = q.question
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    const matchesCategory =
-      !selectedCategory || q.categoryId === selectedCategory;
-    const matchesDifficulty =
-      !selectedDifficulty || q.difficulty === parseInt(selectedDifficulty);
-    return matchesSearch && matchesCategory && matchesDifficulty;
-  });
+  const handleDelete = (question: Question) => {
+    setSelectedQuestion(question);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleEditSave = async (updatedQuestion: Question) => {
+    try {
+      const response = await fetch(
+        `/api/admin/questions/${updatedQuestion.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(updatedQuestion),
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to update question");
+
+      toast({
+        title: "Success",
+        description: "Question updated successfully",
+      });
+      setIsEditDialogOpen(false);
+      fetchQuestions();
+    } catch (error) {
+      console.error("Error updating question:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update question. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedQuestion) return;
+
+    try {
+      const response = await fetch(
+        `/api/admin/questions/${selectedQuestion.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to delete question");
+
+      toast({
+        title: "Success",
+        description: "Question deleted successfully",
+      });
+      setIsDeleteDialogOpen(false);
+      fetchQuestions();
+    } catch (error) {
+      console.error("Error deleting question:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete question. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Questions Management
-        </h1>
-        <Button onClick={() => setIsCreateModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add New Question
-        </Button>
-      </div>
-
-      {/* Search and filters */}
-      <div className="flex gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+    <div className="container mx-auto py-6">
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex-1 max-w-sm">
           <Input
-            type="text"
             placeholder="Search questions..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            onChange={handleSearch}
           />
         </div>
-        <select
-          className="border rounded-md px-3 py-2"
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-        >
-          <option value="">All Categories</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-        <select
-          className="border rounded-md px-3 py-2"
-          value={selectedDifficulty}
-          onChange={(e) => setSelectedDifficulty(e.target.value)}
-        >
-          <option value="">All Difficulties</option>
-          {[1, 2, 3, 4, 5].map((level) => (
-            <option key={level} value={level}>
-              Level {level}
-            </option>
-          ))}
-        </select>
+        <QuestionForm onSuccess={fetchQuestions} />
       </div>
 
-      {/* Questions list */}
-      <div className="space-y-4">
-        {filteredQuestions.map((question) => (
-          <Card key={question.id} className="p-4">
-            <div className="flex justify-between items-start">
-              <div className="space-y-2 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
-                    {question.category.name}
-                  </span>
-                  <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">
-                    Level {question.difficulty}
-                  </span>
-                  {!question.isActive && (
-                    <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">
-                      Inactive
-                    </span>
-                  )}
-                </div>
-                <h3 className="text-lg font-medium">{question.question}</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {question.options.map((option, index) => (
-                    <div
-                      key={index}
-                      className={`p-2 rounded ${
-                        index === question.correctAnswer
-                          ? "bg-green-100 text-green-800"
-                          : "bg-gray-50"
-                      }`}
-                    >
-                      {option}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="flex gap-2 ml-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedQuestion(question);
-                    setIsEditModalOpen(true);
-                  }}
-                >
-                  <Edit className="h-4 w-4 mr-1" />
-                  Edit
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedQuestion(question);
-                    setIsDeleteDialogOpen(true);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete
-                </Button>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      {/* Create/Edit Modal */}
-      {(isCreateModalOpen || isEditModalOpen) && (
-        <QuestionForm
-          question={selectedQuestion}
-          categories={categories}
-          isOpen={isCreateModalOpen || isEditModalOpen}
-          onClose={() => {
-            setIsCreateModalOpen(false);
-            setIsEditModalOpen(false);
-            setSelectedQuestion(null);
-          }}
-          onSubmit={
-            isCreateModalOpen ? handleCreateQuestion : handleEditQuestion
-          }
-        />
+      {loading ? (
+        <div className="text-center py-10">Loading...</div>
+      ) : questions.length === 0 ? (
+        <div className="text-center py-10">No questions found</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {questions.map((question) => (
+            <QuestionCard
+              key={question.id}
+              question={question}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          ))}
+        </div>
       )}
 
-      {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
-        isOpen={isDeleteDialogOpen}
-        onClose={() => setIsDeleteDialogOpen(false)}
-        onConfirm={handleDeleteQuestion}
-        title="Delete Question"
-        message="Are you sure you want to delete this question? This action cannot be undone."
-      />
+      {totalPages > 1 && (
+        <div className="flex justify-center gap-2 mt-6">
+          <Button
+            variant="outline"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
+
+      {selectedQuestion && (
+        <>
+          <EditDialog
+            isOpen={isEditDialogOpen}
+            onClose={() => setIsEditDialogOpen(false)}
+            onSave={handleEditSave}
+            question={selectedQuestion}
+          />
+          <DeleteDialog
+            isOpen={isDeleteDialogOpen}
+            onClose={() => setIsDeleteDialogOpen(false)}
+            onConfirm={handleDeleteConfirm}
+            question={selectedQuestion}
+          />
+        </>
+      )}
     </div>
   );
 }

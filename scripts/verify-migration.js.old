@@ -1,0 +1,189 @@
+import { PrismaClient as DestPrismaClient } from "@prisma/client";
+import { PrismaClient as SourcePrismaClient } from "../prisma/generated/sqlite-client/index.js";
+import { config } from "dotenv";
+
+config();
+
+// Source (SQLite) database
+const sourcePrisma = new SourcePrismaClient();
+
+// Destination (PostgreSQL) database
+const destPrisma = new DestPrismaClient();
+
+async function verifyMigration() {
+  try {
+    console.log("Starting migration verification...");
+    console.log("Source database: SQLite");
+    console.log("Destination database: PostgreSQL");
+
+    // Verify Users
+    const sourceUsers = await sourcePrisma.user.count();
+    const destUsers = await destPrisma.user.count();
+    console.log("\nVerifying users...");
+    console.log(`Source users: ${sourceUsers}`);
+    console.log(`Destination users: ${destUsers}`);
+    console.log(
+      `Status: ${sourceUsers === destUsers ? "✅ Matched" : "❌ Mismatch"}`
+    );
+
+    // Verify Categories
+    const sourceCategories = await sourcePrisma.category.count();
+    const destCategories = await destPrisma.category.count();
+    console.log("\nVerifying categories...");
+    console.log(`Source categories: ${sourceCategories}`);
+    console.log(`Destination categories: ${destCategories}`);
+    console.log(
+      `Status: ${
+        sourceCategories === destCategories ? "✅ Matched" : "❌ Mismatch"
+      }`
+    );
+
+    // Verify Questions
+    const sourceQuestions = await sourcePrisma.question.count();
+    const destQuestions = await destPrisma.question.count();
+    console.log("\nVerifying questions...");
+    console.log(`Source questions: ${sourceQuestions}`);
+    console.log(`Destination questions: ${destQuestions}`);
+    console.log(
+      `Status: ${
+        sourceQuestions === destQuestions ? "✅ Matched" : "❌ Mismatch"
+      }`
+    );
+
+    // Verify Games
+    const sourceGames = await sourcePrisma.game.count();
+    const destGames = await destPrisma.game.count();
+    console.log("\nVerifying games...");
+    console.log(`Source games: ${sourceGames}`);
+    console.log(`Destination games: ${destGames}`);
+    console.log(
+      `Status: ${sourceGames === destGames ? "✅ Matched" : "❌ Mismatch"}`
+    );
+
+    // Verify Game Scores
+    const sourceGameScores = await sourcePrisma.gameScore.count();
+    const destGameScores = await destPrisma.gameScore.count();
+    console.log("\nVerifying game scores...");
+    console.log(`Source game scores: ${sourceGameScores}`);
+    console.log(`Destination game scores: ${destGameScores}`);
+    console.log(
+      `Status: ${
+        sourceGameScores === destGameScores ? "✅ Matched" : "❌ Mismatch"
+      }`
+    );
+
+    // Verify Products
+    const sourceProducts = await sourcePrisma.product.count();
+    const destProducts = await destPrisma.product.count();
+    console.log("\nVerifying products...");
+    console.log(`Source products: ${sourceProducts}`);
+    console.log(`Destination products: ${destProducts}`);
+    console.log(
+      `Status: ${
+        sourceProducts === destProducts ? "✅ Matched" : "❌ Mismatch"
+      }`
+    );
+
+    // Verify Orders
+    const sourceOrders = await sourcePrisma.order.count();
+    const destOrders = await destPrisma.order.count();
+    console.log("\nVerifying orders...");
+    console.log(`Source orders: ${sourceOrders}`);
+    console.log(`Destination orders: ${destOrders}`);
+    console.log(
+      `Status: ${sourceOrders === destOrders ? "✅ Matched" : "❌ Mismatch"}`
+    );
+
+    // Verify Order Items
+    const sourceOrderItems = await sourcePrisma.orderItem.count();
+    const destOrderItems = await destPrisma.orderItem.count();
+    console.log("\nVerifying order items...");
+    console.log(`Source order items: ${sourceOrderItems}`);
+    console.log(`Destination order items: ${destOrderItems}`);
+    console.log(
+      `Status: ${
+        sourceOrderItems === destOrderItems ? "✅ Matched" : "❌ Mismatch"
+      }`
+    );
+
+    // Verify Music Uploads
+    const sourceMusicUploads = await sourcePrisma.musicUpload.count();
+    const destMusicUploads = await destPrisma.musicUpload.count();
+    console.log("\nVerifying music uploads...");
+    console.log(`Source music uploads: ${sourceMusicUploads}`);
+    console.log(`Destination music uploads: ${destMusicUploads}`);
+    console.log(
+      `Status: ${
+        sourceMusicUploads === destMusicUploads ? "✅ Matched" : "❌ Mismatch"
+      }`
+    );
+
+    // Verify Coupons
+    const sourceCoupons = await sourcePrisma.coupon.count();
+    const destCoupons = await destPrisma.coupon.count();
+    console.log("\nVerifying coupons...");
+    console.log(`Source coupons: ${sourceCoupons}`);
+    console.log(`Destination coupons: ${destCoupons}`);
+    console.log(
+      `Status: ${sourceCoupons === destCoupons ? "✅ Matched" : "❌ Mismatch"}`
+    );
+
+    // Verify System Settings
+    const sourceSettings = await sourcePrisma.systemSettings.count();
+    const destSettings = await destPrisma.systemSettings.count();
+    console.log("\nVerifying system settings...");
+    console.log(`Source settings: ${sourceSettings}`);
+    console.log(`Destination settings: ${destSettings}`);
+    console.log(
+      `Status: ${
+        sourceSettings === destSettings ? "✅ Matched" : "❌ Mismatch"
+      }`
+    );
+
+    // Sample check for data integrity
+    if (sourceUsers > 0) {
+      const sampleUser = await sourcePrisma.user.findFirst({
+        include: {
+          accounts: true,
+          sessions: true,
+        },
+      });
+      const migratedUser = await destPrisma.user.findUnique({
+        where: { id: sampleUser.id },
+        include: {
+          accounts: true,
+          sessions: true,
+        },
+      });
+
+      console.log("\nSample data verification:");
+      console.log("Checking user:", sampleUser.email);
+      console.log(
+        "- Basic info match:",
+        JSON.stringify(sampleUser) === JSON.stringify(migratedUser)
+      );
+      console.log(
+        "- Accounts count match:",
+        sampleUser.accounts.length === migratedUser.accounts.length
+      );
+      console.log(
+        "- Sessions count match:",
+        sampleUser.sessions.length === migratedUser.sessions.length
+      );
+    }
+
+    console.log("\nVerification completed!");
+  } catch (error) {
+    console.error("Verification failed:", error);
+    throw error;
+  } finally {
+    await sourcePrisma.$disconnect();
+    await destPrisma.$disconnect();
+  }
+}
+
+// Run verification
+verifyMigration().catch((error) => {
+  console.error("Verification failed:", error);
+  process.exit(1);
+});

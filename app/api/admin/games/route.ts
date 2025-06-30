@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { writeFile } from "fs/promises";
 import { join } from "path";
 import { v4 as uuidv4 } from "uuid";
+import { GameType } from "@prisma/client";
 
 // Helper function to handle image upload
 async function saveImage(formData: FormData): Promise<string | null> {
@@ -31,16 +32,17 @@ async function saveImage(formData: FormData): Promise<string | null> {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const games = await prisma.game.findMany({
       include: {
-        nestedCategories: true,
+        categories: {
+          select: {
+            id: true,
+            name: true,
+            cardNumber: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -48,7 +50,7 @@ export async function GET() {
     });
 
     return NextResponse.json(games);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching games:", error);
     return NextResponse.json(
       { error: "Failed to fetch games" },
@@ -69,13 +71,11 @@ export async function POST(request: NextRequest) {
 
     const name = formData.get("name") as string;
     const description = formData.get("description") as string;
-    const type = formData.get("type") as "STRAIGHT" | "NESTED";
+    const type = formData.get("type") as GameType;
     const isActive = formData.get("isActive") === "true";
     const isPremium = formData.get("isPremium") === "true";
-    const nestedCategoriesRaw = formData.get("nestedCategories");
-    const nestedCategories = nestedCategoriesRaw
-      ? JSON.parse(nestedCategoriesRaw as string)
-      : [];
+    const categoriesRaw = formData.get("nestedCategories");
+    const categories = categoriesRaw ? JSON.parse(categoriesRaw as string) : [];
 
     const game = await prisma.game.create({
       data: {
@@ -86,16 +86,20 @@ export async function POST(request: NextRequest) {
         isActive,
         isPremium,
         ...(type === "NESTED" && {
-          nestedCategories: {
-            create: nestedCategories.map((name: string, index: number) => ({
+          categories: {
+            create: categories.map((name: string, index: number) => ({
               name,
-              order: index + 1,
+              cardNumber: index + 1,
+              isActive: true,
             })),
           },
         }),
       },
       include: {
-        nestedCategories: true,
+        _count: true,
+        questions: true,
+        gameScores: true,
+        categories: true,
       },
     });
 
@@ -122,17 +126,19 @@ export async function PUT(request: NextRequest) {
 
     const name = formData.get("name") as string;
     const description = formData.get("description") as string;
-    const type = formData.get("type") as "STRAIGHT" | "NESTED";
+    const type = formData.get("type") as GameType;
     const isActive = formData.get("isActive") === "true";
     const isPremium = formData.get("isPremium") === "true";
-    const nestedCategoriesRaw = formData.get("nestedCategories");
-    const nestedCategories = nestedCategoriesRaw
-      ? JSON.parse(nestedCategoriesRaw as string)
-      : [];
+    const categoriesRaw = formData.get("nestedCategories");
+    const categories = categoriesRaw ? JSON.parse(categoriesRaw as string) : [];
 
-    // Delete existing nested categories
-    await prisma.nestedCategory.deleteMany({
-      where: { gameId },
+    // Delete existing categories
+    await prisma.category.deleteMany({
+      where: {
+        game: {
+          id: gameId,
+        },
+      },
     });
 
     const game = await prisma.game.update({
@@ -145,16 +151,20 @@ export async function PUT(request: NextRequest) {
         isActive,
         isPremium,
         ...(type === "NESTED" && {
-          nestedCategories: {
-            create: nestedCategories.map((name: string, index: number) => ({
+          categories: {
+            create: categories.map((name: string, index: number) => ({
               name,
-              order: index + 1,
+              cardNumber: index + 1,
+              isActive: true,
             })),
           },
         }),
       },
       include: {
-        nestedCategories: true,
+        _count: true,
+        questions: true,
+        gameScores: true,
+        categories: true,
       },
     });
 
@@ -185,9 +195,13 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete nested categories first
-    await prisma.nestedCategory.deleteMany({
-      where: { gameId },
+    // Delete categories first
+    await prisma.category.deleteMany({
+      where: {
+        game: {
+          id: gameId,
+        },
+      },
     });
 
     // Then delete the game

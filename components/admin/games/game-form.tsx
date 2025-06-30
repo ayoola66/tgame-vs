@@ -4,8 +4,13 @@ import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface GameFormProps {
   game?: any;
@@ -76,11 +81,13 @@ export default function GameForm({
     // Create FormData for multipart/form-data submission
     const submitData = new FormData();
     Object.entries(formData).forEach(([key, value]) => {
-      if (key === "image" && value) {
+      if (key === "image" && value instanceof File) {
         submitData.append("image", value);
       } else if (key === "nestedCategories") {
         submitData.append("nestedCategories", JSON.stringify(value));
-      } else {
+      } else if (typeof value === "boolean") {
+        submitData.append(key, value.toString());
+      } else if (value !== null) {
         submitData.append(key, String(value));
       }
     });
@@ -88,19 +95,12 @@ export default function GameForm({
     onSubmit(submitData);
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-2xl bg-white p-6 rounded-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold">
-            {game ? "Edit Game" : "Create New Game"}
-          </h2>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{game ? "Edit Game" : "Create New Game"}</DialogTitle>
+        </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -199,11 +199,9 @@ export default function GameForm({
                 onChange={(e) =>
                   setFormData({ ...formData, isActive: e.target.checked })
                 }
-                className="rounded border-gray-300"
               />
               Active
             </label>
-
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -211,13 +209,12 @@ export default function GameForm({
                 onChange={(e) =>
                   setFormData({ ...formData, isPremium: e.target.checked })
                 }
-                className="rounded border-gray-300"
               />
               Premium
             </label>
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-4 mt-6">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
@@ -226,7 +223,7 @@ export default function GameForm({
             </Button>
           </div>
         </form>
-      </Card>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

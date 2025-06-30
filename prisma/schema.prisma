@@ -38,26 +38,26 @@ model Session {
 }
 
 model User {
-  id                String     @id @default(cuid())
-  email             String     @unique
-  emailVerified     DateTime?
-  name              String?
-  image             String?
-  password          String?
-  role              String     @default("USER")
-  adminRole         String?    @default("NONE")
-  tier              String     @default("FREE")
-  subscriptionId    String?
-  customMusicUrl    String?
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
-  lastLoginAt       DateTime?
+  id             String    @id @default(cuid())
+  email          String    @unique
+  emailVerified  DateTime?
+  name           String?
+  image          String?
+  password       String?
+  role           String    @default("USER")
+  adminRole      String?   @default("NONE")
+  tier           String    @default("FREE")
+  subscriptionId String?
+  customMusicUrl String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastLoginAt    DateTime?
 
-  accounts      Account[]
-  sessions      Session[]
-  gameScores    GameScore[]
-  orders        Order[]
-  musicUploads  MusicUpload[]
+  accounts     Account[]
+  sessions     Session[]
+  gameScores   GameScore[]
+  orders       Order[]
+  musicUploads MusicUpload[]
 
   @@map("users")
 }
@@ -70,58 +70,56 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model Category {
-  id          String     @id @default(cuid())
-  name        String     @unique
-  description String?
-  imageUrl    String?
-  isActive    Boolean    @default(true)
-  parentId    String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-
-  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children    Category[] @relation("CategoryHierarchy")
-  questions   Question[]
-  games       Game[]
-
-  @@map("categories")
-}
-
 model Question {
   id            String   @id @default(cuid())
-  categoryId    String
-  question      String
-  options       String
-  correctAnswer Int
-  difficulty    Int      @default(1)
+  text          String
+  options       String[] // PostgreSQL supports arrays
+  correctOption Int
+  cardNumber    Int // 1-5 for both game types
+  gameId        String
+  categoryId    String? // Only for nested games
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  game     Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id])
 
   @@map("questions")
 }
 
 model Game {
-  id          String     @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
   description String?
-  type        String
+  type        GameType // Using enum for type safety
   imageUrl    String?
-  categoryId  String?
-  isActive    Boolean    @default(true)
-  isPremium   Boolean    @default(false)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  isActive    Boolean  @default(true)
+  isPremium   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  category         Category?         @relation(fields: [categoryId], references: [id])
-  gameScores       GameScore[]
-  questions        GameQuestion[]
-  nestedCategories NestedCategory[]
+  questions  Question[]
+  categories Category[]
+  gameScores GameScore[]
 
   @@map("games")
+}
+
+model Category {
+  id         String   @id @default(cuid())
+  name       String
+  gameId     String
+  cardNumber Int // 1-5 for nested games
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  game      Game       @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  questions Question[]
+
+  @@unique([gameId, cardNumber])
+  @@map("categories")
 }
 
 model GameScore {
@@ -156,13 +154,13 @@ model Product {
 }
 
 model Order {
-  id         String   @id @default(cuid())
-  userId     String
-  status     String   @default("PENDING")
-  total      Float
-  stripeId   String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  userId    String
+  status    String   @default("PENDING")
+  total     Float
+  stripeId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user       User        @relation(fields: [userId], references: [id])
   orderItems OrderItem[]
@@ -203,10 +201,9 @@ model Coupon {
   id          String   @id @default(cuid())
   code        String   @unique
   discount    Float
-  validFrom   DateTime
-  validUntil  DateTime
-  maxUses     Int?
+  maxUses     Int
   currentUses Int      @default(0)
+  expiresAt   DateTime
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -224,32 +221,7 @@ model SystemSettings {
   @@map("system_settings")
 }
 
-model GameQuestion {
-  id            String   @id @default(cuid())
-  gameId        String
-  question      String
-  options       String
-  correctAnswer Int
-  order         Int
-  points        Int      @default(1)
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
-
-  @@map("game_questions")
-}
-
-model NestedCategory {
-  id        String   @id @default(cuid())
-  gameId    String
-  name      String
-  order     Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
-
-  @@map("nested_categories")
+enum GameType {
+  STRAIGHT
+  NESTED
 }

@@ -141,7 +141,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             onClick={() => setSidebarOpen(false)}
           >
             <div
-              className="fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out"
+              className="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50"
               onClick={(e) => e.stopPropagation()}
             >
               <SidebarContent pathname={pathname} onSignOut={handleSignOut} />
@@ -151,7 +151,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       </div>
 
       {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
+      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col lg:z-30">
         <div className="flex flex-col flex-grow border-r border-gray-200 bg-white overflow-y-auto">
           <SidebarContent pathname={pathname} onSignOut={handleSignOut} />
         </div>

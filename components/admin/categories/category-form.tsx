@@ -11,9 +11,7 @@ interface Category {
   id: string;
   name: string;
   description?: string;
-  imageUrl?: string;
   isActive: boolean;
-  parentId?: string | null;
 }
 
 interface CategoryFormProps {
@@ -34,9 +32,7 @@ export default function CategoryForm({
   const [formData, setFormData] = useState<Partial<Category>>({
     name: "",
     description: "",
-    imageUrl: "",
     isActive: true,
-    parentId: null,
   });
 
   useEffect(() => {
@@ -53,23 +49,6 @@ export default function CategoryForm({
   };
 
   if (!isOpen) return null;
-
-  // Filter out the current category and its children from parent options
-  const getAvailableParents = () => {
-    const isChildOf = (parentId: string, childId: string): boolean => {
-      const child = categories.find((c) => c.id === childId);
-      if (!child) return false;
-      if (child.parentId === parentId) return true;
-      if (child.parentId) return isChildOf(parentId, child.parentId);
-      return false;
-    };
-
-    return categories.filter((c) => {
-      if (category && c.id === category.id) return false;
-      if (category && isChildOf(category.id, c.id)) return false;
-      return true;
-    });
-  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -106,40 +85,6 @@ export default function CategoryForm({
                 setFormData({ ...formData, description: e.target.value })
               }
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="imageUrl">Image URL</Label>
-            <Input
-              id="imageUrl"
-              type="url"
-              value={formData.imageUrl}
-              onChange={(e) =>
-                setFormData({ ...formData, imageUrl: e.target.value })
-              }
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="parentId">Parent Category</Label>
-            <select
-              id="parentId"
-              className="w-full border rounded-md p-2"
-              value={formData.parentId || ""}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  parentId: e.target.value || null,
-                })
-              }
-            >
-              <option value="">None (Top Level)</option>
-              {getAvailableParents().map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
           </div>
 
           <div className="flex items-center gap-2">

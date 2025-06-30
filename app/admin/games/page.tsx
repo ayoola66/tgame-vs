@@ -7,17 +7,37 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import GameForm from "@/components/admin/games/game-form";
 import DeleteConfirmDialog from "@/components/admin/common/delete-confirm-dialog";
+import { toast } from "sonner";
+
+interface NestedCategory {
+  id: string;
+  name: string;
+  order: number;
+  gameId: string;
+}
+
+interface Game {
+  id: string;
+  name: string;
+  description: string;
+  type: "STRAIGHT" | "NESTED";
+  imageUrl: string;
+  isActive: boolean;
+  isPremium: boolean;
+  nestedCategories: NestedCategory[];
+  createdAt: string;
+  updatedAt: string;
+}
 
 export default function GamesPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedGame, setSelectedGame] = useState(null);
+  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [games, setGames] = useState([]);
+  const [games, setGames] = useState<Game[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch games from the API
   useEffect(() => {
     fetchGames();
   }, []);
@@ -26,10 +46,13 @@ export default function GamesPage() {
     try {
       setIsLoading(true);
       const response = await fetch("/api/admin/games");
+      if (!response.ok) throw new Error("Failed to fetch games");
       const data = await response.json();
-      setGames(data);
+      setGames(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching games:", error);
+      toast.error("Failed to load games");
+      setGames([]);
     } finally {
       setIsLoading(false);
     }
@@ -46,13 +69,16 @@ export default function GamesPage() {
 
       await fetchGames();
       setIsCreateModalOpen(false);
+      toast.success("Game created successfully");
     } catch (error) {
       console.error("Error creating game:", error);
-      alert("Failed to create game. Please try again.");
+      toast.error("Failed to create game");
     }
   };
 
   const handleEditGame = async (gameData: FormData) => {
+    if (!selectedGame) return;
+
     try {
       const response = await fetch(`/api/admin/games/${selectedGame.id}`, {
         method: "PUT",
@@ -63,13 +89,16 @@ export default function GamesPage() {
 
       await fetchGames();
       setIsEditModalOpen(false);
+      toast.success("Game updated successfully");
     } catch (error) {
       console.error("Error updating game:", error);
-      alert("Failed to update game. Please try again.");
+      toast.error("Failed to update game");
     }
   };
 
   const handleDeleteGame = async () => {
+    if (!selectedGame) return;
+
     try {
       const response = await fetch(`/api/admin/games/${selectedGame.id}`, {
         method: "DELETE",
@@ -79,9 +108,10 @@ export default function GamesPage() {
 
       await fetchGames();
       setIsDeleteDialogOpen(false);
+      toast.success("Game deleted successfully");
     } catch (error) {
       console.error("Error deleting game:", error);
-      alert("Failed to delete game. Please try again.");
+      toast.error("Failed to delete game");
     }
   };
 
@@ -161,6 +191,11 @@ export default function GamesPage() {
                       Premium
                     </span>
                   )}
+                  {!game.isActive && (
+                    <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">
+                      Inactive
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -210,7 +245,10 @@ export default function GamesPage() {
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmDialog
         isOpen={isDeleteDialogOpen}
-        onClose={() => setIsDeleteDialogOpen(false)}
+        onClose={() => {
+          setIsDeleteDialogOpen(false);
+          setSelectedGame(null);
+        }}
         onConfirm={handleDeleteGame}
         title="Delete Game"
         message="Are you sure you want to delete this game? This action cannot be undone."
